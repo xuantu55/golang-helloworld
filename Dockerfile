@@ -1,5 +1,5 @@
 FROM alpine:3.18.4
 
-ADD argosay /
+ADD main /
 
-ENTRYPOINT ["/argosay"]
+ENTRYPOINT ["/main"]
