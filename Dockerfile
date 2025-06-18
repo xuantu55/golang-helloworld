@@ -1,5 +1,6 @@
 FROM alpine:3.18.4
+WORKDIR /work
 
-ADD main /
+ADD golang-helloworld .
 
-ENTRYPOINT ["/main"]
+ENTRYPOINT ["./golang-helloworld"]
