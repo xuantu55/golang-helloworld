@@ -1,4 +1,4 @@
-FROM alpine:3.18.4
+FROM scratch
 WORKDIR /work
 
 RUN pwd
