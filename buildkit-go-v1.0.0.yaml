@@ -140,6 +140,8 @@ spec:
             go mod download
             go mod verify
             go build -v -o golang-helloworld .
+            pwd
+            ls -la .
     - name: image
       inputs:
         parameters:
