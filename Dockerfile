@@ -6,4 +6,5 @@ RUN ls -la .
 ADD golang-helloworld /work/golang-helloworld
 
 RUN ls -la .
-ENTRYPOINT ["/work/golang-helloworld"]g
+CMD ["sleep", "1000"]
+#ENTRYPOINT ["/work/golang-helloworld"]
