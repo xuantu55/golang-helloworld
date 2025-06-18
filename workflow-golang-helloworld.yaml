@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: golang-helloworld-
+spec:
+  arguments:
+    parameters:
+      - name: repo
+        value: https://github.com/xuantu55/golang-helloworld
+      - name: branch
+        value: main
+      - name: image_builder
+        value: golang:1.23.4
+      - name: image_push
+        value: xuantu55/golang-helloworld:v1
+  workflowTemplateRef:
+    name: buildkit-go-v1.0.0

@@ -28,18 +28,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: buildkit
+  name: buildkit-go-v1.0.0
 spec:
   arguments:
     parameters:
+      - name: image_git_clone
+        value: alpine/git:v2.26.2
       - name: repo
-        value: https://github.com/xuantu55/golang-helloworld
       - name: branch
         value: main
+      - name: workdir
+        value: /work
       - name: path
         value: .
-      - name: image
-        value: xuantu55/golang-helloworld:v1
+      - name: image_builder
+      - name: image_push
   entrypoint: main
   # We use a volume claim template so that we can have a shared workspace.
   volumeClaimTemplates:
@@ -62,12 +65,20 @@ spec:
                   value: "{{workflow.parameters.repo}}"
                 - name: branch
                   value: "{{workflow.parameters.branch}}"
+                - name: workdir
+                  value: "{{workflow.parameters.workdir}}"
+                - name: image_git_clone
+                  value: "{{workflow.parameters.image_git_clone}}"
           - name: build
             template: build
             arguments:
               parameters:
                 - name: path
                   value: "{{workflow.parameters.path}}"
+                - name: workdir
+                  value: "{{workflow.parameters.workdir}}"
+                - name: image_builder
+                  value: "{{workflow.parameters.image_builder}}"
             depends: "clone"
           - name: image
             template: image
@@ -75,22 +86,24 @@ spec:
               parameters:
                 - name: path
                   value: "{{workflow.parameters.path}}"
-                - name: image
-                  value: "{{workflow.parameters.image}}"
+                - name: workdir
+                  value: "{{workflow.parameters.workdir}}"
+                - name: image_push
+                  value: "{{workflow.parameters.image_push}}"
             depends: "build"
     - name: clone
       inputs:
         parameters:
           - name: repo
           - name: branch
+          - name: workdir
+          - name: image_git_clone
       container:
         volumeMounts:
-          - mountPath: /work
+          - mountPath: "{{inputs.parameters.workdir}}"
             name: work
-        image: alpine/git:v2.26.2
-        workingDir: /work
-        # Do a shallow clone, which is the fastest way to clone, by using the
-        # --depth, --branch, and --single-branch options
+        image: "{{inputs.parameters.image_git_clone}}"
+        workingDir: "{{inputs.parameters.workdir}}"
         args:
           - clone
           - --depth
@@ -104,14 +117,15 @@ spec:
       inputs:
         parameters:
           - name: path
+          - name: workdir
+          - name: image_builder
       container:
-        image: golang:1.13
+        image: "{{inputs.parameters.image_builder}}"
         volumeMounts:
-          - mountPath: /work
+          - mountPath: "{{inputs.parameters.workdir}}"
             name: work
-        workingDir: /work/{{inputs.parameters.path}}
+        workingDir: "{{inputs.parameters.workdir}}/{{inputs.parameters.path}}"
         env:
-          # Because this is not a Gomodule, we must turn modules off.
           - name: GO111MODULE
             value: "on"
         command:
@@ -119,21 +133,19 @@ spec:
         args:
           - -c
           - |
-            go mod init golang-helloworld
+            if [ ! -f go.mod ]; then
+              go mod init golang-helloworld
+            fi
             go mod tidy
             go mod download
             go mod verify
             go build -v -o main .
-            pwd
-            ls -la
-            cat Dockerfile
     - name: image
       inputs:
         parameters:
           - name: path
-          - name: image
-      # Mount the configuration so we can push the image.
-      # This should create the /.docker/config.json file.
+          - name: workdir
+          - name: image_push
       volumes:
         - name: docker-config
           secret:
@@ -145,10 +157,10 @@ spec:
         image: moby/buildkit:v0.9.3-rootless
         volumeMounts:
           - name: work
-            mountPath: /work
+            mountPath: "{{inputs.parameters.workdir}}"
           - name: docker-config
             mountPath: /.docker
-        workingDir: /work/{{inputs.parameters.path}}
+        workingDir: "{{inputs.parameters.workdir}}/{{inputs.parameters.path}}"
         env:
           - name: BUILDKITD_FLAGS
             value: --oci-worker-no-process-sandbox
@@ -165,4 +177,4 @@ spec:
           - --local
           - dockerfile=.
           - --output
-          - type=image,name=docker.io/{{inputs.parameters.image}},push=true
+          - "type=image,name=docker.io/{{inputs.parameters.image_push}},push=true"
